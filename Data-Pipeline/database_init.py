@@ -1,6 +1,6 @@
 import requests
 import psycopg2
-import json
+import logging
 
 
 def fetch_data(endpoint, limit):
@@ -12,17 +12,38 @@ def fetch_data(endpoint, limit):
         if response.status_code == 200:
             page_data = response.json()["data"]
             data.extend(page_data)
+            logging.info(f"Fetched page {page}, total items: {len(data)}")
             page += 1
         else:
-            print(f"Failed to fetch data for page {page}: {response.status_code}")
+            logging.error(f"Failed to fetch data for page {page}: {response.status_code}")
             break
     return data[:limit]
 
 
-def insert_data_to_db(connection, data, table):
+def create_table(conn):
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS animes (
+                mal_id SERIAL PRIMARY KEY,
+                title TEXT,
+                title_english TEXT,
+                title_synonyms TEXT,
+                type TEXT,
+                status TEXT,
+                synopsis TEXT,
+                rating TEXT,
+                year INT,
+                genres TEXT,
+                demographics TEXT,
+                themes TEXT    
+            );
+        """)
+        conn.commit()
+
+def insert_data_to_db(connection, data):
     cursor = connection.cursor()
     insert_query = f"""
-    INSERT INTO {table} (
+    INSERT INTO animes (
         mal_id, title, title_english, title_synonyms, type, status, synopsis, genres, demographics, themes
     ) VALUES (
         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
@@ -58,12 +79,13 @@ def main():
         port= "5432",
         database= "animanga_database",
     )
+    create_table(connection)
+    logging.info("Created tables")
     try:
         # Fetch and load dataset
         anime_data = fetch_data("top/anime", 50)
-        insert_data_to_db(connection, anime_data, "anime_dataset")
-        manga_data = fetch_data("top/manga", 50)
-        insert_data_to_db(connection, manga_data, "manga_dataset")
+        insert_data_to_db(connection, anime_data)
+        logging.info("Database initialized")
     finally:
         connection.close()
 
