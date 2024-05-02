@@ -1,7 +1,12 @@
 import requests
 import psycopg2
 import logging
+import time
+import sys
 
+
+# Configure logging to output to STDERR
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 
 def fetch_data(endpoint, limit):
     data = []
@@ -14,6 +19,7 @@ def fetch_data(endpoint, limit):
             data.extend(page_data)
             logging.info(f"Fetched page {page}, total items: {len(data)}")
             page += 1
+            time.sleep(1) # Rate limiting on how many request 
         else:
             logging.error(f"Failed to fetch data for page {page}: {response.status_code}")
             break
@@ -83,7 +89,7 @@ def main():
     logging.info("Created tables")
     try:
         # Fetch and load dataset
-        anime_data = fetch_data("top/anime", 50)
+        anime_data = fetch_data("top/anime", 1500)
         insert_data_to_db(connection, anime_data)
         logging.info("Database initialized")
     finally:
